@@ -1,72 +1,112 @@
-#--- IMPORT DEPENDENCIES ------------------------------------------------------+
-
+#------------------------------------------------------------------------------+
+#这是一个教学用的Skip-gram的实现
+#
+#Zhongyuan Han
+#2019-7-26
+#------------------------------------------------------------------------------+
 import numpy as np
-import re
-from collections import defaultdict
+#import re
+#from collections import defaultdict
 
-#--- CONSTANTS ----------------------------------------------------------------+
-
-
+#1111111111111111111111111111111111111111111111111111111111111111111111111111111111111
 #1.数据准备——定义语料库、整理、规范化和分词
-text='natural language processing and machine learning is fun and exciting';
-coupus=[]
+text = 'natural language processing and machine learning is fun and exciting'
+coupus = [['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting']]
+#1111111111111111111111111111111111111111111111111111111111111111111111111111111111111
 
 
+#2222222222222222222222222222222222222222222222222222222222222222222222222222222222222
+#2.定义超参数
+parameters = {} #定义了字典，存放学习率、训练次数、窗口尺寸、嵌入（embedding）维度等参数
+parameters['n'] = 5                   # 定义embedding的维度
+parameters['window_size'] = 2         # 定义窗口大小
+parameters['min_count'] = 0           # 最小单词出现次数
+parameters['epochs'] = 5000           # 训练次数
+parameters['neg_sample'] = 10           # 反例数量
+parameters['learning_rate'] = 0.01    # 学习速率
+np.random.seed(0)                     # 定义随机数种子，随机数是固定顺序的，以保证实验可以重现
+#2222222222222222222222222222222222222222222222222222222222222222222222222222222222222
 
-#------------------------------------------------------------------------------+
-#
-#   Nathan A. Rooy
-#   Simple word2vec from scratch with Python
-#   2018-FEB
-#
-#------------------------------------------------------------------------------+
+#3333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+#3生成训练数据
+class Train_data():
+    word_count #每个单词出现的次数，字典
+    numberOfWord #不重复的单词个数，整数
+    wordList #按字母排序的单词列表
+    word_index #单词到编号的映射字典
+    index_word #编号到单词的映射字典
 
+    #计算单词出现的次数
+    def get_word_count(corpus):
+        words_count = defaultdict(int)
+        for oneline in corpus:
+            for word in oneline:
+                word_count[word]+=1
+        return words_count
 
-
-
-class word2vec():
-    def __init__ (self):
-        self.n = settings['n']
-        self.eta = settings['learning_rate']
-        self.epochs = settings['epochs']
-        self.window = settings['window_size']
-        pass
-    
-    
-    # GENERATE TRAINING DATA
-    def generate_training_data(self, settings, corpus):
-
-        # GENERATE WORD COUNTS
-        word_counts = defaultdict(int)
-        for row in corpus:
-            for word in row:
-                word_counts[word] += 1
-
-        self.v_count = len(word_counts.keys())
-
-        # GENERATE LOOKUP DICTIONARIES
-        self.words_list = sorted(list(word_counts.keys()),reverse=False)
-        self.word_index = dict((word, i) for i, word in enumerate(self.words_list))
-        self.index_word = dict((i, word) for i, word in enumerate(self.words_list))
-
+    #生成训练数据
+    def generate_training_data(settings, corpus):
+        self.word_count = get_word_count(corpus)
+        self.numberOfWord = len(word_count.keys())
+        wordList = sorted(list(word_count.keys()),reverse=False)
+        word_index = dict((word, i) for i, word in enumerate(wordList))
+        word_index = dict((i,word) for i, word in enumerate(wordList))
         training_data = []
-        # CYCLE THROUGH EACH SENTENCE IN CORPUS
+        # 读取语料中的每一个句子
         for sentence in corpus:
             sent_len = len(sentence)
 
-            # CYCLE THROUGH EACH WORD IN SENTENCE
+            # 读取句子当中的每一个单词
             for i, word in enumerate(sentence):
                 
-                #w_target  = sentence[i]
+                #w_target = sentence[i]
                 w_target = self.word2onehot(sentence[i])
 
                 # CYCLE THROUGH CONTEXT WINDOW
                 w_context = []
-                for j in range(i-self.window, i+self.window+1):
-                    if j!=i and j<=sent_len-1 and j>=0:
+                for j in range(i - self.window, i + self.window + 1):
+                    if j != i and j <= sent_len - 1 and j >= 0:
                         w_context.append(self.word2onehot(sentence[j]))
                 training_data.append([w_target, w_context])
         return np.array(training_data)
+#3333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+
+#3 初始化
+hzyWord2vector = hzy_word2vec_Skip_gram()
+
+#4生成训练数据
+training_data = hzyWord2vector.generate_training_data(settings, corpus)
+
+
+
+
+
+
+   
+
+     
+
+      
+
+
+# train word2vec model
+w2v.train(training_data)
+
+
+
+class hzy_word2vec_Skip_gram():
+
+    
+    def __init__(self):
+        self.rate = settings['learning_rate']
+
+        self.n = settings['n']
+        self.eta = self.epochs = settings['epochs']
+        self.window = settings['window_size']
+        pass
+    
+    
+   
 
 
     # SOFTMAX ACTIVATION FUNCTION
@@ -127,7 +167,8 @@ class word2vec():
 
                 # CALCULATE LOSS
                 self.loss += -np.sum([u[word.index(1)] for word in w_c]) + len(w_c) * np.log(np.sum(np.exp(u)))
-                #self.loss += -2*np.log(len(w_c)) -np.sum([u[word.index(1)] for word in w_c]) + (len(w_c) * np.log(np.sum(np.exp(u))))
+                #self.loss += -2*np.log(len(w_c)) -np.sum([u[word.index(1)] for
+                #word in w_c]) + (len(w_c) * np.log(np.sum(np.exp(u))))
                 
             print 'EPOCH:',i, 'LOSS:', self.loss
         pass
@@ -154,7 +195,7 @@ class word2vec():
             word = self.index_word[i]
             word_sim[word] = theta
 
-        words_sorted = sorted(word_sim.items(), key=lambda(word, sim):sim, reverse=True)
+        words_sorted = sorted(word_sim.items(), key=lambda (word, sim):sim, reverse=True)
 
         for word, sim in words_sorted[:top_n]:
             print word, sim
@@ -178,24 +219,16 @@ class word2vec():
             word = self.index_word[i]
             word_sim[word] = theta
 
-        words_sorted = sorted(word_sim.items(), key=lambda(word, sim):sim, reverse=True)
+        words_sorted = sorted(word_sim.items(), key=lambda (word, sim):sim, reverse=True)
 
         for word, sim in words_sorted[:top_n]:
             print word, sim
             
         pass
 
-#--- EXAMPLE RUN --------------------------------------------------------------+
-
-settings = {}
-settings['n'] = 5                   # dimension of word embeddings
-settings['window_size'] = 2         # context window +/- center word
-settings['min_count'] = 0           # minimum word count
-settings['epochs'] = 5000           # number of training epochs
-settings['neg_samp'] = 10           # number of negative words to use during training
-settings['learning_rate'] = 0.01    # learning rate
+#--- EXAMPLE RUN
+#--------------------------------------------------------------+
 np.random.seed(0)                   # set the seed for reproducibility
-
 corpus = [['the','quick','brown','fox','jumped','over','the','lazy','dog']]
 
 # INITIALIZE W2V MODEL
