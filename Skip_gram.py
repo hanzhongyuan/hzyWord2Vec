@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*- 
 #------------------------------------------------------------------------------+
 #这是一个教学用的Skip-gram的实现
 #
@@ -5,13 +6,18 @@
 #2019-7-26
 #------------------------------------------------------------------------------+
 import numpy as np
-#import re
-#from collections import defaultdict
+import re
+from collections import defaultdict
 
 #1111111111111111111111111111111111111111111111111111111111111111111111111111111111111
 #1.数据准备——定义语料库、整理、规范化和分词
 text = 'natural language processing and machine learning is fun and exciting'
-coupus = [['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting']]
+
+#一行一个句子，每个句子由若干个词组成
+corpus = [
+    ['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting'],
+    ['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting']
+    ]
 #1111111111111111111111111111111111111111111111111111111111111111111111111111111111111
 
 
@@ -28,58 +34,138 @@ np.random.seed(0)                     # 定义随机数种子，随机数是固�
 #2222222222222222222222222222222222222222222222222222222222222222222222222222222222222
 
 #3333333333333333333333333333333333333333333333333333333333333333333333333333333333333
-#3生成训练数据
 class Train_data():
+    '''
     word_count #每个单词出现的次数，字典
-    numberOfWord #不重复的单词个数，整数
+    vocabularySize #不重复的单词个数，整数
     wordList #按字母排序的单词列表
     word_index #单词到编号的映射字典
     index_word #编号到单词的映射字典
-
-    #计算单词出现的次数
-    def get_word_count(corpus):
-        words_count = defaultdict(int)
+    
+    '''
+   #计算单词出现的次数
+    def get_word_count(self,corpus):
+        word_count = defaultdict(int)
         for oneline in corpus:
             for word in oneline:
                 word_count[word]+=1
-        return words_count
+        return word_count
 
+    #将给定的词转换成onehot向量
+    def word2onehot(self,word):
+        word_vec = [0 for i in range(0, self.vocabularySize)]
+        word_index = self.word_index[word]
+        word_vec[word_index] = 1
+        return word_vec
     #生成训练数据
-    def generate_training_data(settings, corpus):
-        self.word_count = get_word_count(corpus)
-        self.numberOfWord = len(word_count.keys())
-        wordList = sorted(list(word_count.keys()),reverse=False)
-        word_index = dict((word, i) for i, word in enumerate(wordList))
-        word_index = dict((i,word) for i, word in enumerate(wordList))
+    def generate_training_data(self,settings,corpus):
+        self.word_count = self.get_word_count(corpus)
+        self.vocabularySize = len(self.word_count.keys())
+        self.wordList = sorted(list(self.word_count.keys()),reverse=False)
+        self.word_index = dict((word, i) for i, word in enumerate(self.wordList))
+        self.index_word = dict((i,word) for i, word in enumerate(self.wordList))
         training_data = []
         # 读取语料中的每一个句子
-        for sentence in corpus:
-            sent_len = len(sentence)
-
+        for sentence in corpus:            
             # 读取句子当中的每一个单词
-            for i, word in enumerate(sentence):
-                
-                #w_target = sentence[i]
+            for i, word in enumerate(sentence):                
+                #将当前单词转化为onehot向量
                 w_target = self.word2onehot(sentence[i])
-
-                # CYCLE THROUGH CONTEXT WINDOW
+                # 平移窗口取内容
                 w_context = []
-                for j in range(i - self.window, i + self.window + 1):
-                    if j != i and j <= sent_len - 1 and j >= 0:
+                sentenceLength = len(sentence)
+                for j in range(i - settings['window_size'], i + settings['window_size'] + 1):
+                    if j != i and j <= sentenceLength - 1 and j >= 0:
                         w_context.append(self.word2onehot(sentence[j]))
                 training_data.append([w_target, w_context])
         return np.array(training_data)
+#3生成训练数据  
+training_data = Train_data()
+training_corpus=training_data.generate_training_data(parameters, corpus)
 #3333333333333333333333333333333333333333333333333333333333333333333333333333333333333
 
-#3 初始化
+#4444444444444444444444444444444444444444444444444444444444444444444444444444444444444
+class hzy_word2vec_Skip_gram():
+    #初始化参数
+    def _init_(self,parameters):
+        self.n=parameters['n']      # 定义embedding的维度
+        self.epochs=parameters['epochs']  # 训练次数
+        self.learningRate=parameters['learning_rate'] # 学习速率
+
+    #定义softmax函数 
+    def softmax(self,x):
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0)
+
+    # 定义前向传递计算方法
+    def forward_pass(self,x):
+        h = np.dot(self.w1.T, x) #h=w1.*x
+        u = np.dot(self.w2.T, h) #u=w2.*h
+        y_c = self.softmax(u)    #y_c是u通过softmax归一化的结果
+        return y_c, h, u
+
+     # 反向传递算法
+    def backprop( self,e, h, x):
+        dl_dw2 = np.outer(h, e)  
+        dl_dw1 = np.outer(x, np.dot(self.w2, e.T))
+        # 更新权重
+        self.w1 = self.w1 - (self.learningRate * dl_dw1)
+        self.w2 = self.w2 - (self.learningRate * dl_dw2)
+        pass
+
+    # 训练word2vector
+    def train(self, training_data,training_corpus):
+        # 初始化权重矩阵
+        self.w1 = np.random.uniform(-0.8, 0.8, (training_data.vocabularySize, self.n))     #onthot到 embedding 的转换矩阵
+        self.w2 = np.random.uniform(-0.8, 0.8, (self.n, training_data.vocabularySize)) # embedding到onthot的转换矩阵
+        
+        # 循环训练epochs次
+        for i in range(0, self.epochs):
+            self.loss = 0
+            # 循环处理训练数据中的内容,word_taget是目标词，wordContext是目标词的上下文
+            for wordTaget, wordContext in training_corpus:
+
+                # 调用前向传递算法,#h=w1.*x  #u=w2.*h   #y_c是u通过softmax归一化的结果
+                y_pred, h, u = self.forward_pass(wordTaget)
+                
+                # 计算错误率 np.subtract是求两者之差，然后求和
+                theError = np.sum([np.subtract(y_pred, word) for word in wordContext], axis=0)
+
+                # 调用反向传递算法进行更新
+                self.backprop(theError, h, wordTaget)
+
+                # 计算损失函数
+                self.loss += -np.sum([u[word.index(1)] for word in wordContext]) + len(wordContext) * np.log(np.sum(np.exp(u)))
+                #self.loss += -2*np.log(len(w_c)) -np.sum([u[word.index(1)] for
+                #word in w_c]) + (len(w_c) * np.log(np.sum(np.exp(u))))
+                
+            print 'EPOCH:',i, 'LOSS:', self.loss
+    def get_word_vector(self,word,training_data):       
+        w_index = training_data.word_index[word]
+        v_w = self.w1[w_index]
+        return v_w
+
+#4 初始化
 hzyWord2vector = hzy_word2vec_Skip_gram()
+hzyWord2vector._init_(parameters)
 
-#4生成训练数据
-training_data = hzyWord2vector.generate_training_data(settings, corpus)
-
-
+#4444444444444444444444444444444444444444444444444444444444444444444444444444444444444
 
 
+#5555555555555555555555555555555555555555555555555555555555555555555555555555555555555
+#训练模型
+hzyWord2vector.train(training_data,training_corpus)
+#5555555555555555555555555555555555555555555555555555555555555555555555555555555555555
+
+
+#6666666666666666666666666666666666666666666666666666666666666666666666666666666666666
+#6输出训练的向量
+print("machine")
+print(hzyWord2vector.get_word_vector('machine',training_data))
+print("learning")
+print(hzyWord2vector.get_word_vector('learning',training_data))
+
+#6666666666666666666666666666666666666666666666666666666666666666666666666666666666666
 
 
    
@@ -89,97 +175,13 @@ training_data = hzyWord2vector.generate_training_data(settings, corpus)
       
 
 
-# train word2vec model
-w2v.train(training_data)
 
 
 
+'''
 class hzy_word2vec_Skip_gram():
 
-    
-    def __init__(self):
-        self.rate = settings['learning_rate']
-
-        self.n = settings['n']
-        self.eta = self.epochs = settings['epochs']
-        self.window = settings['window_size']
-        pass
-    
-    
-   
-
-
-    # SOFTMAX ACTIVATION FUNCTION
-    def softmax(self, x):
-        e_x = np.exp(x - np.max(x))
-        return e_x / e_x.sum(axis=0)
-
-
-    # CONVERT WORD TO ONE HOT ENCODING
-    def word2onehot(self, word):
-        word_vec = [0 for i in range(0, self.v_count)]
-        word_index = self.word_index[word]
-        word_vec[word_index] = 1
-        return word_vec
-
-
-    # FORWARD PASS
-    def forward_pass(self, x):
-        h = np.dot(self.w1.T, x)
-        u = np.dot(self.w2.T, h)
-        y_c = self.softmax(u)
-        return y_c, h, u
-                
-
-    # BACKPROPAGATION
-    def backprop(self, e, h, x):
-        dl_dw2 = np.outer(h, e)  
-        dl_dw1 = np.outer(x, np.dot(self.w2, e.T))
-
-        # UPDATE WEIGHTS
-        self.w1 = self.w1 - (self.eta * dl_dw1)
-        self.w2 = self.w2 - (self.eta * dl_dw2)
-        pass
-
-
-    # TRAIN W2V model
-    def train(self, training_data):
-        # INITIALIZE WEIGHT MATRICES
-        self.w1 = np.random.uniform(-0.8, 0.8, (self.v_count, self.n))     # embedding matrix
-        self.w2 = np.random.uniform(-0.8, 0.8, (self.n, self.v_count))     # context matrix
-        
-        # CYCLE THROUGH EACH EPOCH
-        for i in range(0, self.epochs):
-
-            self.loss = 0
-
-            # CYCLE THROUGH EACH TRAINING SAMPLE
-            for w_t, w_c in training_data:
-
-                # FORWARD PASS
-                y_pred, h, u = self.forward_pass(w_t)
-                
-                # CALCULATE ERROR
-                EI = np.sum([np.subtract(y_pred, word) for word in w_c], axis=0)
-
-                # BACKPROPAGATION
-                self.backprop(EI, h, w_t)
-
-                # CALCULATE LOSS
-                self.loss += -np.sum([u[word.index(1)] for word in w_c]) + len(w_c) * np.log(np.sum(np.exp(u)))
-                #self.loss += -2*np.log(len(w_c)) -np.sum([u[word.index(1)] for
-                #word in w_c]) + (len(w_c) * np.log(np.sum(np.exp(u))))
-                
-            print 'EPOCH:',i, 'LOSS:', self.loss
-        pass
-
-
-    # input a word, returns a vector (if available)
-    def word_vec(self, word):
-        w_index = self.word_index[word]
-        v_w = self.w1[w_index]
-        return v_w
-
+  
 
     # input a vector, returns nearest word(s)
     def vec_sim(self, vec, top_n):
@@ -239,5 +241,6 @@ training_data = w2v.generate_training_data(settings, corpus)
 
 # train word2vec model
 w2v.train(training_data)
+'''
 
 #--- END ----------------------------------------------------------------------+
