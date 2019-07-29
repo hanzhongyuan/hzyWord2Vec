@@ -1,17 +1,3 @@
-//  Copyright 2013 Google Inc. All Rights Reserved.
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,11 +17,8 @@ typedef float real;                    // Precision of float numbers
 //每个词的基本数据结构
 struct vocab_word {
   long long cn;		//词频，从训练集中计数得到或直接提供词频文件
-  int *point;		//Haffman树中从根节点到该词的路径，存放的是路径上每个节点的索引
-  //word为该词的字面值
-  //code为该词的haffman编码
-  //codelen为该词haffman编码的长度
-  char *word, *code, codelen;
+  int *point;		//Haffman树中从根节点到该词的路径，存放的是路径上每个节点的索引  
+  char *word, *code, codelen;//word为该词的字面值     //code为该词的haffman编码  //codelen为该词haffman编码的长度
 };
 
 char train_file[MAX_STRING], output_file[MAX_STRING];
