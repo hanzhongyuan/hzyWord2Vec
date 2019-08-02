@@ -1,2 +1,4 @@
 D:\github\hzyWord2Vec\参考资料\原版\RewriteOriginalWord2VecWithCSharp\obj\Debug\RewriteOriginalWord2VecWithCSharp.csprojAssemblyReference.cache
 D:\github\hzyWord2Vec\参考资料\原版\RewriteOriginalWord2VecWithCSharp\obj\Debug\RewriteOriginalWord2VecWithCSharp.csproj.CoreCompileInputs.cache
+C:\GitHub\hzyWord2Vec\参考资料\原版\RewriteOriginalWord2VecWithCSharp\obj\Debug\RewriteOriginalWord2VecWithCSharp.csprojAssemblyReference.cache
+C:\GitHub\hzyWord2Vec\参考资料\原版\RewriteOriginalWord2VecWithCSharp\obj\Debug\RewriteOriginalWord2VecWithCSharp.csproj.CoreCompileInputs.cache
