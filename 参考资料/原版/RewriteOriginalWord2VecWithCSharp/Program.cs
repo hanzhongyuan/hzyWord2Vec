@@ -46,7 +46,7 @@ namespace RewriteOriginalWord2VecWithCSharp
         //syn1neg是负采样时每个词的辅助向量
         //expTable是提前计算好的Sigmond函数表
 
-        double[,] syn0, syn1, syn1neg, expTable;
+        double[] syn0, syn1, syn1neg, expTable;
         int hs = 0, negative = 5;
 
 
@@ -254,7 +254,7 @@ namespace RewriteOriginalWord2VecWithCSharp
             //这里为syn0分配内存空间
             //调用posiz_memalign来获取一块数量为vocab_size * layer1_size，128byte页对齐的内存
             //其中layer1_size是词向量的长度
-            syn0 = new double[vocab_size(), layer1_size];
+            syn0 = new double[vocab_size()* layer1_size];
 
 
             //多层Softmax回归
@@ -275,7 +275,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                 ////初始化syn1neg为0
                 //for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
                 //        syn1neg[a * layer1_size + b] = 0;
-                syn1neg = new double[vocab_size(), layer1_size];
+                syn1neg = new double[vocab_size()* layer1_size];
             }
 
             for (a = 0; a < vocab_size(); a++)
@@ -284,7 +284,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                 {
                     next_random = next_random * (Int64)25214903917 + 11;
                     //初始化词向量syn0，每一维的值为[-0.5, 0.5]/layer1_size范围内的随机数
-                    syn0[a, b] = (((next_random & 0xFFFF) / 65536.0) - 0.5) / layer1_size;
+                    syn0[a* b] = (((next_random & 0xFFFF) / 65536.0) - 0.5) / layer1_size;
                 }
             }
             //创建Haffman二叉树
