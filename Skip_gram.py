@@ -175,7 +175,7 @@ class hzy_word2vec_Skip_gram():
                 self.loss += -np.sum([u[word.index(1)] for word in wordContext]) + len(wordContext) * np.log(np.sum(np.exp(u)))
                 #self.loss += -2*np.log(len(w_c)) -np.sum([u[word.index(1)] for
                 #word in w_c]) + (len(w_c) * np.log(np.sum(np.exp(u))))                
-            print 'EPOCH:',i, 'LOSS:', self.loss
+            print ('EPOCH:',i, 'LOSS:', self.loss)
 
 
     #输入一个onthot表示的词，得到他的词向量
@@ -197,11 +197,11 @@ class hzy_word2vec_Skip_gram():
 
             word = self.index_word[i]
             word_sim[word] = theta
-
-        words_sorted = sorted(word_sim.items(), key=lambda (word, sim):sim, reverse=True)
+            #????????????????????????????????????????????需要更新新版本
+        words_sorted =""# sorted(word_sim.items(), key=lambda (word, sim):sim, reverse=True)
 
         for word, sim in words_sorted[:top_n]:
-            print word, sim
+            print (word, sim)
             
         pass
 

@@ -254,7 +254,7 @@ namespace RewriteOriginalWord2VecWithCSharp
             //这里为syn0分配内存空间
             //调用posiz_memalign来获取一块数量为vocab_size * layer1_size，128byte页对齐的内存
             //其中layer1_size是词向量的长度
-            syn0 = new double[vocab_size()* layer1_size];
+            syn0 = new double[vocab_size() * layer1_size];
 
 
             //多层Softmax回归
@@ -275,7 +275,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                 ////初始化syn1neg为0
                 //for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
                 //        syn1neg[a * layer1_size + b] = 0;
-                syn1neg = new double[vocab_size()* layer1_size];
+                syn1neg = new double[vocab_size() * layer1_size];
             }
 
             for (a = 0; a < vocab_size(); a++)
@@ -284,7 +284,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                 {
                     next_random = next_random * (Int64)25214903917 + 11;
                     //初始化词向量syn0，每一维的值为[-0.5, 0.5]/layer1_size范围内的随机数
-                    syn0[a* b] = (((next_random & 0xFFFF) / 65536.0) - 0.5) / layer1_size;
+                    syn0[a * b] = (((next_random & 0xFFFF) / 65536.0) - 0.5) / layer1_size;
                 }
             }
             //创建Haffman二叉树
@@ -324,7 +324,7 @@ namespace RewriteOriginalWord2VecWithCSharp
             //label：在负采样中存储当前样本的标记
             Int64 l1, l2, c, local_iter = iter;
             string target;
-                int label;
+            int label;
             //next_random：用来辅助生成随机数
             UInt64 next_random = (UInt64)id;
             double f, g;
@@ -378,7 +378,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                     sentence_position = 0;
                 }
 
-                /
+
 
                 //取出当前单词
                 word = sen[sentence_position];
@@ -540,15 +540,16 @@ namespace RewriteOriginalWord2VecWithCSharp
                                     next_random = next_random * (UInt64)25214903917 + 11;
                                     var aaa = (next_random >> 16);
                                     target = table[aaa % table_size()];//???????
-                                    if (target == "") target =vocab[(table[ next_random % (vocab_size() - 1) + 1])].word;
+                                    if (target == "") target = vocab[(table[next_random % (vocab_size() - 1) + 1])].word;
                                     if (target == word) continue;
                                     label = 0;
                                 }
-                                l2 =vocab[ target].oneHotId;
+                                l2 = vocab[target].oneHotId;
                                 f = 0;
                                 for (c = 0; c < layer1_size; c++)
-                                { f += syn0[c + l1] * syn1neg[c + l2];
-                                   ///？？？？？？？？？？
+                                {
+                                    f += syn0[c + l1] * syn1neg[c + l2];
+                                    ///？？？？？？？？？？
 
                                 }
                                 if (f > MAX_EXP) g = (label - 1) * alpha;
@@ -573,18 +574,13 @@ namespace RewriteOriginalWord2VecWithCSharp
             }
         }
 
-        fclose(fi);
-        free(neu1);
-        free(neu1e);
-        pthread_exit(NULL);
-    }
-}
-
-
-
-
-
-
 
     }
 }
+
+
+
+
+
+
+
