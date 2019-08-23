@@ -1,0 +1,7 @@
+D:\github\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.exe.config
+D:\github\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.exe
+D:\github\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.pdb
+D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csprojAssemblyReference.cache
+D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csproj.CoreCompileInputs.cache
+D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.exe
+D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.pdb

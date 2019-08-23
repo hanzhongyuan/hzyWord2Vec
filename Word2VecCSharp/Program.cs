@@ -57,141 +57,144 @@ namespace Word2VecCSharp
         static void Main(string[] args)
         {
         exit:
-            if (args.Length == 0)
-            {
+            //if (args.Length == 0)
+            //{
 
-                Console.WriteLine("WORD VECTOR estimation toolkit v 0.1b\n\n");
-                Console.WriteLine("Options:\n");
-                Console.WriteLine("Parameters for training:\n");
+            //    Console.WriteLine("WORD VECTOR estimation toolkit v 0.1b\n\n");
+            //    Console.WriteLine("Options:\n");
+            //    Console.WriteLine("Parameters for training:\n");
 
-                //输入文件：已分词的语料
-                Console.WriteLine("\t-train <file>\n");
-                Console.WriteLine("\t\tUse text data from <file> to train the model\n");
+            //    //输入文件：已分词的语料
+            //    Console.WriteLine("\t-train <file>\n");
+            //    Console.WriteLine("\t\tUse text data from <file> to train the model\n");
 
-                //输出文件：词向量或者词聚类
-                Console.WriteLine("\t-output <file>\n");
-                Console.WriteLine("\t\tUse <file> to save the resulting word vectors / word clusters\n");
+            //    //输出文件：词向量或者词聚类
+            //    Console.WriteLine("\t-output <file>\n");
+            //    Console.WriteLine("\t\tUse <file> to save the resulting word vectors / word clusters\n");
 
-                //词向量的维度，默认值是100
-                Console.WriteLine("\t-size <int>\n");
-                Console.WriteLine("\t\tSet size of word vectors; default is 100\n");
+            //    //词向量的维度，默认值是100
+            //    Console.WriteLine("\t-size <int>\n");
+            //    Console.WriteLine("\t\tSet size of word vectors; default is 100\n");
 
-                //窗口大小，默认是5
-                Console.WriteLine("\t-window <int>\n");
-                Console.WriteLine("\t\tSet max skip length between words; default is 5\n");
+            //    //窗口大小，默认是5
+            //    Console.WriteLine("\t-window <int>\n");
+            //    Console.WriteLine("\t\tSet max skip length between words; default is 5\n");
 
-                //设定词出现频率的阈值，对于常出现的词会被随机下采样
-                Console.WriteLine("\t-sample <float>\n");
-                Console.WriteLine("\t\tSet threshold for occurrence of words. Those that appear with higher frequency");
-                Console.WriteLine(" in the training data will be randomly down-sampled; default is 0 (off), useful value is 1e-5\n");
+            //    //设定词出现频率的阈值，对于常出现的词会被随机下采样
+            //    Console.WriteLine("\t-sample <float>\n");
+            //    Console.WriteLine("\t\tSet threshold for occurrence of words. Those that appear with higher frequency");
+            //    Console.WriteLine(" in the training data will be randomly down-sampled; default is 0 (off), useful value is 1e-5\n");
 
-                //是否采用softmax体系
-                Console.WriteLine("\t-hs <int>\n");
-                Console.WriteLine("\t\tUse Hierarchical Softmax; default is 1 (0 = not used)\n");
+            //    //是否采用softmax体系
+            //    Console.WriteLine("\t-hs <int>\n");
+            //    Console.WriteLine("\t\tUse Hierarchical Softmax; default is 1 (0 = not used)\n");
 
-                //负样本的数量，默认是0，通常使用5-10。0表示不使用。
-                Console.WriteLine("\t-negative <int>\n");
-                Console.WriteLine("\t\tNumber of negative examples; default is 0, common values are 5 - 10 (0 = not used)\n");
+            //    //负样本的数量，默认是0，通常使用5-10。0表示不使用。
+            //    Console.WriteLine("\t-negative <int>\n");
+            //    Console.WriteLine("\t\tNumber of negative examples; default is 0, common values are 5 - 10 (0 = not used)\n");
 
-                //开启的线程数量
-                Console.WriteLine("\t-threads <int>\n");
-                Console.WriteLine("\t\tUse <int> threads (default 1)\n");
+            //    //开启的线程数量
+            //    Console.WriteLine("\t-threads <int>\n");
+            //    Console.WriteLine("\t\tUse <int> threads (default 1)\n");
 
-                //最小阈值。对于出现次数少于该值的词，会被抛弃掉。
-                Console.WriteLine("\t-min-count <int>\n");
-                Console.WriteLine("\t\tThis will discard words that appear less than <int> times; default is 5\n");
+            //    //最小阈值。对于出现次数少于该值的词，会被抛弃掉。
+            //    Console.WriteLine("\t-min-count <int>\n");
+            //    Console.WriteLine("\t\tThis will discard words that appear less than <int> times; default is 5\n");
 
-                //学习速率初始值，默认是0.025
-                Console.WriteLine("\t-alpha <float>\n");
-                Console.WriteLine("\t\tSet the starting learning rate; default is 0.025\n");
+            //    //学习速率初始值，默认是0.025
+            //    Console.WriteLine("\t-alpha <float>\n");
+            //    Console.WriteLine("\t\tSet the starting learning rate; default is 0.025\n");
 
-                //输出词类别，而不是词向量
-                Console.WriteLine("\t-classes <int>\n");
-                Console.WriteLine("\t\tOutput word classes rather than word vectors; default number of classes is 0 (vectors are written)\n");
+            //    //输出词类别，而不是词向量
+            //    Console.WriteLine("\t-classes <int>\n");
+            //    Console.WriteLine("\t\tOutput word classes rather than word vectors; default number of classes is 0 (vectors are written)\n");
 
-                //debug模式，默认是2，表示在训练过程中会输出更多信息
-                Console.WriteLine("\t-debug <int>\n");
-                Console.WriteLine("\t\tSet the debug mode (default = 2 = more info during training)\n");
+            //    //debug模式，默认是2，表示在训练过程中会输出更多信息
+            //    Console.WriteLine("\t-debug <int>\n");
+            //    Console.WriteLine("\t\tSet the debug mode (default = 2 = more info during training)\n");
 
-                //是否用binary模式保存数据，默认是0，表示否。
-                Console.WriteLine("\t-binary <int>\n");
-                Console.WriteLine("\t\tSave the resulting vectors in binary moded; default is 0 (off)\n");
+            //    //是否用binary模式保存数据，默认是0，表示否。
+            //    Console.WriteLine("\t-binary <int>\n");
+            //    Console.WriteLine("\t\tSave the resulting vectors in binary moded; default is 0 (off)\n");
 
-                //保存词汇到这个文件
-                Console.WriteLine("\t-save-vocab <file>\n");
-                Console.WriteLine("\t\tThe vocabulary will be saved to <file>\n");
+            //    //保存词汇到这个文件
+            //    Console.WriteLine("\t-save-vocab <file>\n");
+            //    Console.WriteLine("\t\tThe vocabulary will be saved to <file>\n");
 
-                //词汇从该文件读取，而不是由训练数据重组
-                Console.WriteLine("\t-read-vocab <file>\n");
-                Console.WriteLine("\t\tThe vocabulary will be read from <file>, not constructed from the training data\n");
+            //    //词汇从该文件读取，而不是由训练数据重组
+            //    Console.WriteLine("\t-read-vocab <file>\n");
+            //    Console.WriteLine("\t\tThe vocabulary will be read from <file>, not constructed from the training data\n");
 
-                //是否采用continuous bag of words算法。默认是0，表示采用另一个叫skip-gram的算法。
-                Console.WriteLine("\t-cbow <int>\n");
-                Console.WriteLine("\t\tUse the continuous bag of words model; default is 0 (skip-gram model)\n");
+            //    //是否采用continuous bag of words算法。默认是0，表示采用另一个叫skip-gram的算法。
+            //    Console.WriteLine("\t-cbow <int>\n");
+            //    Console.WriteLine("\t\tUse the continuous bag of words model; default is 0 (skip-gram model)\n");
 
-                //工具使用样例
-                Console.WriteLine("\nExamples:\n");
-                Console.WriteLine("./word2vec -train data.txt -output vec.txt -debug 2 -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1\n\n");
-                Environment.Exit(0);
-            }
-            Dictionary<string, string> parameters = new Dictionary<string, string>();
-            for (int i = 0; i < args.Length; i = i + 2)
-            {
-                try
-                {
-                    parameters.Add(args[i], args[i + 1]);
-                }
-                catch (Exception)
-                {
-                    args = new string[0];
-                    goto exit;
-                }
+            //    //工具使用样例
+            //    Console.WriteLine("\nExamples:\n");
+            //    Console.WriteLine("./word2vec -train data.txt -output vec.txt -debug 2 -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1\n\n");
+            //    Environment.Exit(0);
+            //}
+            //Dictionary<string, string> parameters = new Dictionary<string, string>();
+            //for (int i = 0; i < args.Length; i = i + 2)
+            //{
+            //    try
+            //    {
+            //        parameters.Add(args[i], args[i + 1]);
+            //    }
+            //    catch (Exception)
+            //    {
+            //        args = new string[0];
+            //        goto exit;
+            //    }
 
-            }
-
-
-            output_file = "";
-            save_vocab_file = "";
-            read_vocab_file = "";
-            //           if ((i = ArgPos((char*)"-size", argc, argv)) > 0) layer1_size = atoi(argv[i + 1]);
-            if (parameters.ContainsKey("-train")) train_file = parameters["-train"];
+            //}
 
 
-            //           if ((i = ArgPos((char*)"-save-vocab", argc, argv)) > 0) strcpy(save_vocab_file, argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-read-vocab", argc, argv)) > 0) strcpy(read_vocab_file, argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-debug", argc, argv)) > 0) debug_mode = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-cbow", argc, argv)) > 0) cbow = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
-            //           
-            if (parameters.ContainsKey("-output")) train_file = parameters["-output"];
-
-            //           if ((i = ArgPos((char*)"-window", argc, argv)) > 0) window = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-sample", argc, argv)) > 0) sample = atof(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-hs", argc, argv)) > 0) hs = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-negative", argc, argv)) > 0) negative = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-threads", argc, argv)) > 0) num_threads = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
-            //           if ((i = ArgPos((char*)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
+            //output_file = "";
+            //save_vocab_file = "";
+            //read_vocab_file = "";
+            ////           if ((i = ArgPos((char*)"-size", argc, argv)) > 0) layer1_size = atoi(argv[i + 1]);
+            //if (parameters.ContainsKey("-train")) train_file = parameters["-train"];
 
 
+            ////           if ((i = ArgPos((char*)"-save-vocab", argc, argv)) > 0) strcpy(save_vocab_file, argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-read-vocab", argc, argv)) > 0) strcpy(read_vocab_file, argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-debug", argc, argv)) > 0) debug_mode = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-cbow", argc, argv)) > 0) cbow = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
+            ////           
+            //if (parameters.ContainsKey("-output")) train_file = parameters["-output"];
 
-            expTable = new double[EXP_TABLE_SIZE + 1];
-            for (int i = 0; i < EXP_TABLE_SIZE; i++)
-            {
-                //expTable[i] = exp((i -500)/ 500 * 6) 即 e^-6 ~ e^6
-                expTable[i] = Math.Exp((1.0 * i / (EXP_TABLE_SIZE * 2 - 1) * MAX_EXP)); // Precompute the exp() table
-                                                                                        //expTable[i] = 1/(1+e^6) ~ 1/(1+e^-6)即 0.01 ~ 1 的样子
-                expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
-            }
-            //  TrainModel();
+            ////           if ((i = ArgPos((char*)"-window", argc, argv)) > 0) window = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-sample", argc, argv)) > 0) sample = atof(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-hs", argc, argv)) > 0) hs = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-negative", argc, argv)) > 0) negative = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-threads", argc, argv)) > 0) num_threads = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
+            ////           if ((i = ArgPos((char*)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
+
+
+
+            //expTable = new double[EXP_TABLE_SIZE + 1];
+            //for (int i = 0; i < EXP_TABLE_SIZE; i++)
+            //{
+            //    //expTable[i] = exp((i -500)/ 500 * 6) 即 e^-6 ~ e^6
+            //    expTable[i] = Math.Exp((1.0 * i / (EXP_TABLE_SIZE * 2 - 1) * MAX_EXP)); // Precompute the exp() table
+            //                                                                            //expTable[i] = 1/(1+e^6) ~ 1/(1+e^-6)即 0.01 ~ 1 的样子
+            //    expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
+            //}
+            ////TrainModel();
 
 
 
 
             Hzyword2Vector hzyword2Vector = new Hzyword2Vector();
+            hzyword2Vector.InitUnigramTable();
+            hzyword2Vector.InitNet();
+            
 
-            hzyword2Vector.TrainModelThread(15, @"C:\Users\lover\OneDrive\Desktop\a.txt");
+            hzyword2Vector.TrainModelThread(15, @"d:\temp\word2vectortrain.txt");
         }
 
 
@@ -435,7 +438,8 @@ namespace Word2VecCSharp
         //根据Haffman树的特性，出现频率越高的词其二叉树上的路径越短，即二进制编码越短
         void CreateBinaryTree()
         {
-            throw new Exception("方法未实现");
+           // throw new Exception("方法未实现");
+           Console.WriteLine("CreateBinaryTree方法没有实现");
         }
 
         //该函数为线程函数，是训练算法代码实现的主要部分
