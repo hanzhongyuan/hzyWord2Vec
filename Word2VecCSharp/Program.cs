@@ -5,12 +5,11 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
 
-namespace RewriteOriginalWord2VecWithCSharp
+namespace Word2VecCSharp
 {
     //每个词的基本数据结构
-    public class vocab_word
+    class vocab_word
     {
         public Int64 oneHotId;
         public Int64 cn;//词频，从训练集中计数得到或直接提供词频文件
@@ -19,51 +18,48 @@ namespace RewriteOriginalWord2VecWithCSharp
         public string code;//code为该词的haffman编码
         public string chodelen;//codelen为该词haffman编码的长度
     }
-    public class Hzyword2Vector
+    class Hzyword2Vector
     {
-        static int MAX_STRING = 100;
-        static int EXP_TABLE_SIZE = 1000;
-        static int MAX_EXP = 6;
-        static int MAX_SENTENCE_LENGTH = 1000;
-        static int MAX_CODE_LENGTH = 40;
+        public static int MAX_STRING = 100; //词的最大长度
+        public static int EXP_TABLE_SIZE = 1000;  //exp速查表的大小
+        public static int MAX_EXP = 6;  //最大exp的值
+        public static int MAX_SENTENCE_LENGTH = 1000; //句子的最大长度（词数)
+        public static int MAX_CODE_LENGTH = 40;
 
+        public static ConcurrentDictionary<string, vocab_word> vocab = new ConcurrentDictionary<string, vocab_word>();
 
-        static string train_file;// = new char[MAX_STRING];
-        static string output_file;// = new char[MAX_STRING];
-        static string save_vocab_file;// = new char[MAX_STRING];
-        static string read_vocab_file;// = new char[MAX_STRING];
+        public static string train_file, output_file;
+        public static string save_vocab_file, read_vocab_file;
 
-        public static ConcurrentDictionary <string, vocab_word> vocab = new ConcurrentDictionary<string, vocab_word>();
-
-
-        static int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
+        public static int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
 
         //vocab_size为训练集中不同单词的个数，即词表的大小,这里直接用函数代替，为了和原来代码较为一致
         //layer1_size为词向量的长度
-        int vocab_size() { return vocab.Count; }
-         public static int layer1_size = 100;
+        public static int vocab_size() { return vocab.Count; }
+        public static int layer1_size = 100;
 
-        static Int64 train_words = 0;//总词数
-        static Int64 word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
+        public static Int64 train_words = 0;//总词数
+        public static Int64 word_count_actual = 0, iter = 5, file_size = 0, classes = 0;
 
-        static double alpha = 0.025, starting_alpha, sample = 1e-3;
+        public static double alpha = 0.025, starting_alpha, sample = 1e-3;
 
         //syn0存储的是词表中每个词的词向量
         //syn1存储的是Haffman树中每个非叶节点的向量
         //syn1neg是负采样时每个词的辅助向量
         //expTable是提前计算好的Sigmond函数表
 
-        static double[] syn0, syn1, syn1neg, expTable;
-        static int hs = 0, negative = 5;
+        public static double[] syn0, syn1, syn1neg, expTable;
+        public static int hs = 0, negative = 5;
 
 
-        static List<string> table; //table 存储的是词频分布表
-        static int table_size() { return table.Count; }
+        public static List<string> table; //table 存储的是词频分布表
+        public static int table_size() { return table.Count; }
         static void Main(string[] args)
         {
-            
+        exit:
             if (args.Length == 0)
             {
+
                 Console.WriteLine("WORD VECTOR estimation toolkit v 0.1b\n\n");
                 Console.WriteLine("Options:\n");
                 Console.WriteLine("Parameters for training:\n");
@@ -136,44 +132,66 @@ namespace RewriteOriginalWord2VecWithCSharp
                 //工具使用样例
                 Console.WriteLine("\nExamples:\n");
                 Console.WriteLine("./word2vec -train data.txt -output vec.txt -debug 2 -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1\n\n");
-
                 Environment.Exit(0);
             }
-            
-            Dictionary<string,string> argsList = new Dictionary<string,string>();
-            for (int argi = 0; argi < args.Length; argi++)
+            Dictionary<string, string> parameters = new Dictionary<string, string>();
+            for (int i = 0; i < args.Length; i = i + 2)
             {
+                try
+                {
+                    parameters.Add(args[i], args[i + 1]);
+                }
+                catch (Exception)
+                {
+                    args = new string[0];
+                    goto exit;
+                }
 
             }
 
 
-            if ((ArgPos("-size", argsList)) != null) layer1_size = Convert.ToInt16(ArgPos("-size", argsList));
-            if ((ArgPos("-train", argsList)) != null) train_file=ArgPos("-train", argsList);
-            if ((ArgPos("-save-vocab", argsList)) != null) save_vocab_file=ArgPos("-save-vocab", argsList);
-            if ((ArgPos("-read-vocab", argsList)) != null) read_vocab_file=ArgPos("-read-vocab", argsList);
-            if ((ArgPos("-debug", argsList)) != null) debug_mode =  Convert.ToInt16(ArgPos("-debug", argsList));
-            if ((ArgPos("-binary", argsList)) != null) binary =  Convert.ToInt16(ArgPos("-binary", argsList));
-            if ((ArgPos("-cbow", argsList)) != null) cbow =  Convert.ToInt16(ArgPos("-cbow", argsList));
-            if ((ArgPos("-alpha", argsList)) != null) alpha = Convert.ToDouble(ArgPos("-alpha", argsList));
-            if ((ArgPos("-output", argsList)) != null) output_file=ArgPos("-output", argsList);
-            if ((ArgPos("-window", argsList)) != null) window =  Convert.ToInt16(ArgPos("-window", argsList));
-            if ((ArgPos("-sample", argsList)) != null) sample = Convert.ToDouble(ArgPos("-sample", argsList));
-            if ((ArgPos("-hs", argsList)) != null) hs =  Convert.ToInt16(ArgPos("-hs", argsList));
-            if ((ArgPos("-negative", argsList)) != null) negative =  Convert.ToInt16(ArgPos("-negative", argsList));
-            if ((ArgPos("-threads", argsList)) != null) num_threads =  Convert.ToInt16(ArgPos("-threads", argsList));
-            if ((ArgPos("-min-count", argsList)) != null) min_count =  Convert.ToInt16(ArgPos("-min-count", argsList));
-            if ((ArgPos("-classes", argsList)) != null) classes =  Convert.ToInt16(ArgPos("-classes", argsList));
-            vocab = new ConcurrentDictionary<string, vocab_word>();
+            output_file = "";
+            save_vocab_file = "";
+            read_vocab_file = "";
+            //           if ((i = ArgPos((char*)"-size", argc, argv)) > 0) layer1_size = atoi(argv[i + 1]);
+            if (parameters.ContainsKey("-train")) train_file = parameters["-train"];
+
+
+            //           if ((i = ArgPos((char*)"-save-vocab", argc, argv)) > 0) strcpy(save_vocab_file, argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-read-vocab", argc, argv)) > 0) strcpy(read_vocab_file, argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-debug", argc, argv)) > 0) debug_mode = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-cbow", argc, argv)) > 0) cbow = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
+            //           
+            if (parameters.ContainsKey("-output")) train_file = parameters["-output"];
+
+            //           if ((i = ArgPos((char*)"-window", argc, argv)) > 0) window = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-sample", argc, argv)) > 0) sample = atof(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-hs", argc, argv)) > 0) hs = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-negative", argc, argv)) > 0) negative = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-threads", argc, argv)) > 0) num_threads = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
+            //           if ((i = ArgPos((char*)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
+
+
 
             expTable = new double[EXP_TABLE_SIZE + 1];
             for (int i = 0; i < EXP_TABLE_SIZE; i++)
-            {               
-                expTable[i] = Math.Exp((1.0*i / EXP_TABLE_SIZE * 2 - 1) * MAX_EXP); // Precompute the exp() table
-                                                                                 //expTable[i] = 1/(1+e^6) ~ 1/(1+e^-6)即 0.01 ~ 1 的样子
+            {
+                //expTable[i] = exp((i -500)/ 500 * 6) 即 e^-6 ~ e^6
+                expTable[i] = Math.Exp((1.0 * i / (EXP_TABLE_SIZE * 2 - 1) * MAX_EXP)); // Precompute the exp() table
+                                                                                        //expTable[i] = 1/(1+e^6) ~ 1/(1+e^-6)即 0.01 ~ 1 的样子
                 expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
             }
-            TrainModel();    
+            //  TrainModel();
 
+
+
+
+            Hzyword2Vector hzyword2Vector = new Hzyword2Vector();
+
+            hzyword2Vector.TrainModelThread(15, @"C:\Users\lover\OneDrive\Desktop\a.txt");
         }
 
 
@@ -182,7 +200,7 @@ namespace RewriteOriginalWord2VecWithCSharp
         //每个词对应一个线段, 将[0,1]等距离划分成10^8，每次生成一个随机整数r，Table[r]就是一个样本。
         void InitUnigramTable()
         {
-            int a;
+
             double train_words_pow = 0;
             double d1;
             double power = 0.75;
@@ -206,13 +224,19 @@ namespace RewriteOriginalWord2VecWithCSharp
             }
         }
 
+        /// <summary>
+        /// //////////////
+        /// 爱上对方拒绝了阿斯兰的看法就阿斯顿发链接啊多放辣椒士大夫立刻就啊士大夫立刻就士大夫
+        /// </summary>
+        /// <param name="fin"></param>
+        /// <returns></returns>
+
         //从文件中读入一个词到word，以space' '，tab'\t'，EOL'\n'为词的分界符
         //截去一个词中长度超过MAX_STRING的部分
         //每一行的末尾输出一个</s>
         string ReadWord(StreamReader fin)
         {
             throw new Exception("方法未实现");
-            return "";
         }
 
 
@@ -220,7 +244,6 @@ namespace RewriteOriginalWord2VecWithCSharp
         int GetWordHash(string word)
         {
             throw new Exception("方法未实现");
-            return 0;
         }
 
         //返回一个词在词表中的位置，若不存在则返回-1
@@ -230,15 +253,12 @@ namespace RewriteOriginalWord2VecWithCSharp
         int SearchVocab(string word)
         {
             throw new Exception("方法未实现");
-            return -1;
         }
 
         //从文件中读入一个词，并返回这个词在词表中的位置，相当于将之前的两个函数包装了起来
         int ReadWordIndex(StreamReader fin)
         {
             throw new Exception("方法未实现");
-            string word = ReadWord(fin);
-            return SearchVocab(word);
         }
 
         //为一个词构建一个vocab_word结构对象，并添加到词表中
@@ -369,7 +389,7 @@ namespace RewriteOriginalWord2VecWithCSharp
         void InitNet()
         {
             Int64 a, b;
-            Random next_random = new Random(1);
+            Int64 next_random = 1;
             //syn0存储的是词表中每个词的词向量
             //这里为syn0分配内存空间
             //调用posiz_memalign来获取一块数量为vocab_size * layer1_size，128byte页对齐的内存
@@ -402,13 +422,9 @@ namespace RewriteOriginalWord2VecWithCSharp
             {
                 for (b = 0; b < layer1_size; b++)
                 {
-
+                    next_random = next_random * (Int64)25214903917 + 11;
                     //初始化词向量syn0，每一维的值为[-0.5, 0.5]/layer1_size范围内的随机数
-<<<<<<< HEAD
-                    syn0[a * b] = (next_random.NextDouble() - 0.5) / layer1_size;
-=======
                     syn0[a * b] = (((next_random & 0xFFFF) / 65536.0) - 0.5) / layer1_size;
->>>>>>> 1910edad7a9669c7d8043bcc0edd9e336ee401c2
                 }
             }
             //创建Haffman二叉树
@@ -426,16 +442,14 @@ namespace RewriteOriginalWord2VecWithCSharp
         //默认在执行该线程函数前，已经完成词表排序、Haffman树的生成以及每个词的Haffman编码计算
         void TrainModelThread(Int64 id, string train_file)
         {
-            Int64 a, b, d;
-
-            Int64 cw;//cw：窗口长度（中心词除外）
-
+            //Int64 a, b, d;
+            //Int64 cw;//cw：窗口长度（中心词除外）
             //word: 在提取句子时用来表示当前词在词表中的索引
             //last_word: 用于在窗口扫描辅助，记录当前扫描到的上下文单词
             //setence_length: 当前处理的句子长度
             //setence_position: 当前处理的单词在当前句子中的位置
 
-            string word = "", last_word;
+            string word, last_word;
             Int64 sentence_length = 0, sentence_position = 0;
             //word_count: 当前线程当前时刻已训练的语料的长度
             //last_word_count: 当前线程上一次记录时已训练的语料长度
@@ -462,7 +476,7 @@ namespace RewriteOriginalWord2VecWithCSharp
 
             //这里是单进程，所以直接打开文件就行了
             StreamReader file = new StreamReader(train_file);
-            file.Close();
+
             //开始主循环
             while (!file.EndOfStream)
             {
@@ -488,8 +502,9 @@ namespace RewriteOriginalWord2VecWithCSharp
                         //可以看作是一种平滑方法
                         if (sample > 0)
                         {
-                            //以1-ran的概率舍弃高频词 ran是 这个词出现的次数越多，ran得值越小，越容易被过滤掉
                             double ran = (Math.Sqrt(vocab[one_word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[one_word].cn;
+
+                            //以1-ran的概率舍弃高频词
                             if (ran < next_random.NextDouble()) continue;
                         }
                         sen[sentence_length] = one_word;
@@ -511,9 +526,9 @@ namespace RewriteOriginalWord2VecWithCSharp
                 for (c = 0; c < layer1_size; c++) neu1[c] = 0;
                 //初始化累计误差项
                 for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
-                //生成一个[0, window-1]的随机数，用来确定|context(w)|窗口的实际宽度（提高训练速率？）
 
-                b = next_random.Next() % window;
+                //生成一个[0, window-1]的随机数，用来确定|context(w)|窗口的实际宽度（提高训练速率？）
+                int ture_window_size = next_random.Next() % window;
 
 
                 /********如果使用的是CBOW模型：输入是某单词周围窗口单词的词向量，来预测该中心单词本身*********/
@@ -633,9 +648,7 @@ namespace RewriteOriginalWord2VecWithCSharp
 
                 //因为需要预测Context(w)中的每个词，因此需要循环2window - 2b + 1次遍历整个窗口
                 //遍历时跳过中心单词
-                for (a = b; a < window * 2 + 1 - b; a++)
-                {
-                    if (a != window)
+                for (int a = ture_window_size; a < window * 2 + 1 - ture_window_size; a++) if (a != window)
                     {
                         c = sentence_position - window + a;
                         if (c < 0) continue;
@@ -653,8 +666,7 @@ namespace RewriteOriginalWord2VecWithCSharp
                         //遍历所有正负样本（1个正样本+negative个负样本）
                         //算法流程基本和CBOW的ns一样，也采用的是模型对称
                         if (negative > 0)
-                        {
-                            for (d = 0; d < negative + 1; d++)
+                            for (int d = 0; d < negative + 1; d++)
                             {
                                 if (d == 0)
                                 {
@@ -663,33 +675,19 @@ namespace RewriteOriginalWord2VecWithCSharp
                                 }
                                 else
                                 {
-<<<<<<< HEAD
 
-                                    target = table[next_random.Next() % table_size()];
+                                    target = table[next_random.Next() % table_size()];//???????
                                     if (target == "") target = vocab[(table[next_random.Next() % (vocab_size() - 1) + 1])].word;
                                     if (target == word) continue;
                                     label = 0;
                                 }
-                                l2 = vocab[target].oneHotId * layer1_size;
-=======
-                                    next_random = next_random * (UInt64)25214903917 + 11;
-                                    var aaa = (next_random >> 16);
-                                    target = table[aaa % table_size()];//???????
-                                    if (target == "") target = vocab[(table[next_random % (vocab_size() - 1) + 1])].word;
-                                    if (target == word) continue;
-                                    label = 0;
-                                }
                                 l2 = vocab[target].oneHotId;
->>>>>>> 1910edad7a9669c7d8043bcc0edd9e336ee401c2
                                 f = 0;
                                 for (c = 0; c < layer1_size; c++)
                                 {
                                     f += syn0[c + l1] * syn1neg[c + l2];
-<<<<<<< HEAD
-=======
                                     ///？？？？？？？？？？
 
->>>>>>> 1910edad7a9669c7d8043bcc0edd9e336ee401c2
                                 }
                                 if (f > MAX_EXP) g = (label - 1) * alpha;
                                 else if (f < -MAX_EXP) g = (label - 0) * alpha;
@@ -699,10 +697,10 @@ namespace RewriteOriginalWord2VecWithCSharp
                                 for (c = 0; c < layer1_size; c++)
                                 { syn1neg[c + l2] += g * syn0[c + l1]; }
                             }
-                        }
                         for (c = 0; c < layer1_size; c++) syn0[c + l1] += neu1e[c];
                     }
-                }
+
+
                 //完成了一个词的训练，句子中位置往后移一个词
                 sentence_position++;
                 //处理完一句句子后，将句子长度置为零，进入循环，重新读取句子并进行逐词计算
@@ -712,78 +710,9 @@ namespace RewriteOriginalWord2VecWithCSharp
                     continue;
                 }
             }
+
             file.Close();
         }
-
-
-
-
-
-        //完整的模型训练流程函数
-        void TrainModel()
-        {
-            long a, b, c, d;
-            StreamWriter fo;
-
-            //设置初始学习率
-            starting_alpha = alpha;
-            //如果有词汇表文件，则从中加载生成词表和hash表，否则从训练文件中获得
-            if (read_vocab_file != null) ReadVocab(read_vocab_file); else LearnVocabFromTrainFile(train_file);
-            //根据需要，可以将词表中的词和词频输出到文件
-            if (save_vocab_file != null) SaveVocab(save_vocab_file);
-            if (output_file[0] == 0) return;
-            //初始化训练网络
-            InitNet();
-            //如果使用负采样优化，则需要初始化能量表
-            if (negative > 0) InitUnigramTable();
-
-
-            fo = new StreamWriter(output_file);
-
-            //如果classes参数为0，则输出所有词向量到文件中
-            if (classes == 0)
-            {
-                fo.WriteLine(vocab_size()+" "+layer1_size);
-                foreach (var item in vocab)
-                {
-                    fo.WriteLine(item.Key);
-
-                }
-               
-                for (a = 0; a < vocab_size; a++)
-                {
-                    fConsole.WriteLine(fo, "%s ", vocab[a].word);
-                    if (binary) for (b = 0; b < layer1_size; b++) fwrite(&syn0[a * layer1_size + b], sizeof(real), 1, fo);
-                    else for (b = 0; b < layer1_size; b++) fConsole.WriteLine(fo, "%lf ", syn0[a * layer1_size + b]);
-                    fConsole.WriteLine(fo, "\n");
-                }
-            }
-
-<<<<<<< HEAD
-=======
-
     }
+
 }
->>>>>>> 1910edad7a9669c7d8043bcc0edd9e336ee401c2
-
-            fo.Close();
-        }
-
-        //当参数缺失时，输出提示信息
-       static string ArgPos(string arg_name, Dictionary<string, string> argsList)
-        {
-            if (argsList.ContainsKey(arg_name))
-                return argsList[arg_name];
-            return null;
-        }
-
-
-
-
-
-<<<<<<< HEAD
-    }
-}
-
-=======
->>>>>>> 1910edad7a9669c7d8043bcc0edd9e336ee401c2
