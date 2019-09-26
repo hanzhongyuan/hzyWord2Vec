@@ -5,3 +5,10 @@ D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csprojAssemblyRefe
 D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csproj.CoreCompileInputs.cache
 D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.exe
 D:\github\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.pdb
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.exe.config
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.exe
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\bin\Debug\Word2VecCSharp.pdb
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csprojAssemblyReference.cache
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.csproj.CoreCompileInputs.cache
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.exe
+C:\GitHub\hzyWord2Vec\Word2VecCSharp\obj\Debug\Word2VecCSharp.pdb
