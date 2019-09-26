@@ -11,14 +11,401 @@ namespace Word2VecCSharp
     //每个词的基本数据结构
     class vocab_word
     {
-        public Int64 oneHotId;
-        public Int64 cn;//词频，从训练集中计数得到或直接提供词频文件
-        public List<int> point;//Haffman树中从根节点到该词的路径，存放的是路径上每个节点的索引
-        public string word;//word为该词的字面值 
-        public string code;//code为该词的haffman编码
-        public string chodelen;//codelen为该词haffman编码的长度
+        public Int64 oneHot;
+        public Int64 cn;//词频，从训练集中计数得到或直接提供词频文件        
+        public string word;//word为该词的字面值        
     }
+
+
     class Hzyword2Vector
+    {
+        public static int MAX_STRING = 100; //词的最大长度
+        public static int EXP_TABLE_SIZE = 1000;  //exp速查表的大小
+        public static int MAX_EXP = 6;  //最大exp的值
+        public static int MAX_SENTENCE_LENGTH = 1000; //句子的最大长度（词数)
+
+        //词向量的长度
+        public static int embeddinglength = 100;
+        //词的信息
+        public static ConcurrentDictionary<string, vocab_word> word_information = new ConcurrentDictionary<string, vocab_word>();
+        //负反馈存储的词的分布
+        public static List<string> table = new List<string>(); //table 按照词频分布存储单词
+                                                               //syn0存储的是词表中每个词的词向量        
+                                                               //syn1neg是负采样时每个词的辅助向量
+                                                               //expTable是提前计算好的Sigmond函数表
+        public static double[] syn0, syn1neg, expTable;
+        public static int debug_mode = 2, window = 5, min_count = 5;
+
+        public static Int64 train_words = 0;//总词数
+        public static Int64 word_count_actual = 0, iter = 5;
+        public static double alpha = 0.025, sample = 1e-3;
+        public static int negative = 5;
+
+        public static int starting_alpha;
+        public Hzyword2Vector()
+        {
+            expTable = new double[EXP_TABLE_SIZE + 1];
+            for (int i = 0; i < EXP_TABLE_SIZE; i++)
+            {
+                expTable[i] = Math.Exp((1.0 * i / (EXP_TABLE_SIZE * 2 - 1) * MAX_EXP));
+                expTable[i] = expTable[i] / (expTable[i] + 1);
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            string trainfilename = @"D:\temp\zh_wiki_segment.txt";
+            string outputfilename = @"D:\temp\zh_wiki_embedding.txt";
+            Hzyword2Vector hzyword2Vector = new Hzyword2Vector();
+            hzyword2Vector.LearnVocabFromTrainFile(trainfilename);
+            hzyword2Vector.InitUnigramTable();
+            hzyword2Vector.InitNet();
+            hzyword2Vector.TrainModelThread(15, trainfilename);
+            hzyword2Vector.saveEmbedding(outputfilename);
+        }
+
+
+        //计算每个函数的词频分布表，在负采样中用到
+        //负采样算法：带权采样思想。每个词的权重为l(w) = [counter(w)]^(3/4) / sum([counter(u)]^(3/4))，u属于词典D
+        //每个词对应一个线段, 将[0,1]等距离划分成10^8，每次生成一个随机整数r，Table[r]就是一个样本。
+        public void InitUnigramTable()
+        {
+            double train_words_pow = 0;
+            double d1;
+            double power = 0.75;
+            //遍历词表，根据词频计算累计值的分母
+            foreach (var word in word_information)
+            {
+                train_words_pow += Math.Pow(word.Value.cn, power); //  求和( 词频^0.75)
+            }
+            foreach (var word in word_information)
+            {
+                d1 = Math.Pow(word.Value.cn, power) / train_words_pow; //  求和( 词频^0.75)
+                for (double i = 0; i < d1; i = i + 1.0 / 1e8)
+                {
+                    table.Add(word.Key);
+                }
+            }
+        }
+
+        //为一个词构建一个vocab_word结构对象，并添加到词表中
+        //词频初始化为0，hash值用之前的函数计算，
+        //返回该词在词表中的位置
+        void AddWordToVocab(string word)
+        {
+            if (word.Length > MAX_STRING)
+            {
+                word = word.Substring(0, MAX_STRING);
+            }
+            if (!word_information.ContainsKey(word))
+            {
+                vocab_word one_vocab_word = new vocab_word();
+                one_vocab_word.cn = 1;
+                one_vocab_word.word = word;
+                if (!word_information.TryAdd(word, one_vocab_word))
+                {
+                    Console.WriteLine("插入单词失败");
+                }
+            }
+            else
+            {
+                word_information[word].cn += 1;
+            }
+
+        }
+
+        //统计词频，按照词频对词表中的项从大到小排序
+        //统计总单词数量
+        //这个排序是干什么用的？构建哈夫曼树？
+        void SortVocab()
+        {
+            foreach (var word in word_information.Keys)
+            {
+                if (word_information[word].cn < min_count)
+                {
+                    vocab_word temp;
+                    if (!word_information.TryRemove(word, out temp))
+                    { Console.WriteLine("移除出现词数少的词失败"); }
+                }
+            }
+            train_words = 0;
+            foreach (var word in word_information.Values)
+            {
+                train_words += word.cn;
+            }
+            Console.WriteLine("还没有排序，onehotid还没有实现更新");
+        }
+
+        //从训练文件中获取所有词汇并构建词表和hash词表
+        void LearnVocabFromTrainFile(string filename)
+        {
+            StreamReader file = new StreamReader(filename);
+            while (!file.EndOfStream)
+            {
+                string[] fields = file.ReadLine().Split(' ');
+                foreach (var word1 in fields)
+                {
+                    AddWordToVocab(word1);
+                }
+            }
+            file.Close();
+
+            //对词表进行排序，剔除词频低于阈值min_count的值，输出当前词表大小和总词数
+            SortVocab();
+            if (debug_mode > 0)
+            {
+                Console.WriteLine("Vocab size: " + word_information.Count);
+                Console.WriteLine("Words in train file: " + train_words);
+            }
+
+        }
+
+
+        //将单词和对应的词频输出到文件中
+        void SaveVocab(string filename)
+        {
+            StreamWriter file = new StreamWriter(filename);
+            foreach (var item in word_information)
+            {
+                file.WriteLine(item.Value.word + "\t" + item.Value.cn);
+            }
+            file.Close();
+        }
+
+
+
+        //从词汇表文件中读词并构建词表和hash表
+        //由于词汇表中的词语不存在重复，因此与LearnVocabFromTrainFile相比没有做重复词汇的检测
+        void ReadVocab(string filename)
+        {
+            word_information.Clear();
+            StreamReader file = new StreamReader(filename);
+            while (!file.EndOfStream)
+            {
+                string[] fields = file.ReadLine().Split('\t');
+                vocab_word word1 = new vocab_word();
+                word1.word = fields[0];
+                word1.cn = Convert.ToInt64(fields[1]);
+                if (!word_information.TryAdd(fields[0], word1)) { Console.WriteLine("添加单词失败"); }
+            }
+        }
+
+        //初始化神经网络结构
+        public void InitNet()
+        {
+            Int64 a, b;
+            Random next_random = new Random();
+            //syn0存储的是词表中每个词的词向量,词汇表大小 * 词向量的长度           
+            syn0 = new double[word_information.Count * embeddinglength];
+
+            //如果要使用负采样，则需要为syn1neg分配内存空间
+            //syn1neg是负采样时每个词的辅助向量
+            if (negative > 0)
+            {
+                syn1neg = new double[word_information.Count * embeddinglength];
+                for (a = 0; a < word_information.Count; a++)
+                {
+                    for (b = 0; b < embeddinglength; b++)
+                    {
+                        syn1neg[a * embeddinglength + b] = 0;
+                    }
+                }
+            }
+
+            for (a = 0; a < word_information.Count; a++)
+            {
+                for (b = 0; b < embeddinglength; b++)
+                {
+                    //初始化词向量syn0，每一维的值为[-0.5, 0.5]/layer1_size范围内的随机数
+                    syn0[a * b] = (next_random.NextDouble() - 0.5) / embeddinglength;
+                }
+            }
+
+        }
+
+        public void saveEmbedding(string filename)
+        {
+            StreamWriter file = new StreamWriter(filename);
+            foreach (var word in word_information)
+            {
+                file.Write(word.Key + "\t");
+                for (int i = 0; i < embeddinglength; i++)
+                {
+                    file.Write(syn0[word.Value.oneHot + i] + "\t");
+                }
+                file.WriteLine();
+            }
+            file.Close();
+        }
+
+        //该函数为线程函数，是训练算法代码实现的主要部分
+        //默认在执行该线程函数前，已经完成词表排序、Haffman树的生成以及每个词的Haffman编码计算
+        public void TrainModelThread(Int64 id, string train_file)
+        {
+            string last_word;
+            int sentence_position = 0;
+            Int64 word_count = 0, last_word_count = 0; //word_count: 当前线程当前时刻已训练的语料的长度//last_word_count: 当前线程上一次记录时已训练的语料长度   
+            List<string> sen = new List<string>();  //sen：当前从文件中读取的待处理句子，存放的是每个词            
+            Int64 l1, l2, local_iter = iter;//l1：在skip-gram模型中，在syn0中定位当前词词向量的起始位置 //l2：在syn1或syn1neg中定位中间节点向量或负采样向量的起始位置
+
+            string target; //target：在负采样中存储当前样本
+            int label;//label：在负采样中存储当前样本的标记
+
+            Random next_random = new Random(); //next_random：用来辅助生成随机数
+            double f, g;
+            int currentPosition;
+            double[] neu1 = new double[embeddinglength]; //neu1：输入词向量，在CBOW模型中是Context(x)中各个词的向量和，在skip-gram模型中是中心词的词向量
+            double[] neu1e = new double[embeddinglength]; //neuele：累计误差项
+
+            StreamReader file = new StreamReader(train_file);
+
+            //开始主循环
+            while (!file.EndOfStream)
+            {
+                //每训练约10000词输出一次训练进度
+                if (word_count - last_word_count > 10000)
+                {
+                    //word_count_actual是所有线程总共当前处理的词数
+                    word_count_actual += word_count - last_word_count;
+                    last_word_count = word_count;
+                    //在初始学习率的基础上，随着实际训练词数的上升，逐步降低当前学习率（自适应调整学习率）
+                    alpha = starting_alpha * (1 - word_count_actual / (double)(iter * train_words + 1));
+                    //调整的过程中保证学习率不低于starting_alpha * 0.0001
+                    if (alpha < starting_alpha * 0.0001) alpha = starting_alpha * 0.0001;
+                }
+
+                //从训练样本中取出一个句子，句子间以回车分割                
+                if (sen.Count == 0)
+                {
+                    string[] words = file.ReadLine().Split(' ');
+                    foreach (var one_word in words)
+                    {
+                        if (word_information.ContainsKey(one_word))
+                        {
+                            //对高频词进行随机下采样，丢弃掉一些高频词，能够使低频词向量更加准确，同时加快训练速度//可以看作是一种平滑方法                        
+                            if (sample > 0)
+                            {
+                                double ran = (Math.Sqrt(word_information[one_word].cn / (sample * train_words)) + 1) * (sample * train_words) / word_information[one_word].cn;
+                                if (ran < next_random.NextDouble()) continue; //以1-ran的概率舍弃高频词
+                            }
+                            sen.Add(one_word);
+                        }
+                        //如果句子长度超出最大长度则截断
+                        if (sen.Count >= MAX_SENTENCE_LENGTH) break;
+                    }
+                    //定位到句子头
+                    sentence_position = 0;
+                }
+
+                //取出当前单词
+                foreach (string word in sen)
+                {
+
+                    if (!word_information.ContainsKey(word)) continue;
+
+                    //初始化输入词向量
+                    for (int i = 0; i < embeddinglength; i++) neu1[i] = 0;
+                    //初始化累计误差项
+                    for (int i = 0; i < embeddinglength; i++) neu1e[i] = 0;
+
+                    //生成一个[0, window-1]的随机数，用来确定|context(w)|窗口的实际宽度（提高训练速率？）
+                    int ture_window_size = next_random.Next() % window;
+
+                    //因为需要预测Context(w)中的每个词，因此需要循环2window - 2b + 1次遍历整个窗口//遍历时跳过中心单词                    
+                    for (int leftWindowPosition = ture_window_size; leftWindowPosition < window * 2 + 1 - ture_window_size; leftWindowPosition++)
+                    {
+                        if (leftWindowPosition != window)
+                        {
+                            #region #取一个上下文的词
+                            currentPosition = sentence_position - window + leftWindowPosition;
+                            if (currentPosition < 0) continue;
+                            if (currentPosition >= sen.Count) continue;
+                            last_word = sen[currentPosition];//last_word为当前待预测的上下文单词
+                            if (last_word == "") continue;
+                            #endregion
+
+
+                            //l1为当前单词的词向量在syn0中的起始位置
+                            l1 = word_information[last_word].oneHot * embeddinglength;
+                            //初始化累计误差
+                            for (int i = 0; i < embeddinglength; i++) neu1e[i] = 0;
+
+
+                            //如果采用负采样优化
+                            //遍历所有正负样本（1个正样本+negative个负样本）
+                            //算法流程基本和CBOW的ns一样，也采用的是模型对称
+                            if (negative > 0)
+                            {
+                                for (int d = 0; d < negative + 1; d++)
+                                {
+                                    #region # d=0 取正样本 d=1..负样本数+1 取负样本
+                                    if (d == 0)
+                                    {
+                                        target = word;
+                                        label = 1;
+                                    }
+                                    else
+                                    {
+                                        target = table[next_random.Next() % table.Count]; //按照概率取负样本单词
+                                        if (target == "") target = word_information[(table[next_random.Next() % (word_information.Count - 1) + 1])].word;
+                                        if (target == word) continue;
+                                        label = 0;
+                                    }
+                                    #endregion
+
+                                    l2 = word_information[target].oneHot * embeddinglength;
+                                    f = 0;
+                                    for (int i = 0; i < embeddinglength; i++)
+                                    {
+                                        f += syn0[i + l1] * syn1neg[i + l2];   ////f为输入向量与辅助向量的内积    
+                                    }
+                                    if (f > MAX_EXP)
+                                    {
+                                        g = (label - 1) * alpha;
+                                    }
+                                    else
+                                    {
+                                        if (f < -MAX_EXP)
+                                        { g = (label - 0) * alpha; }
+                                        else
+                                        {
+                                            g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+                                        }
+                                    }
+                                    //用辅助向量和g更新累计误差
+                                    for (int i = 0; i < embeddinglength; i++)
+                                    {
+                                        neu1e[i] += g * syn1neg[i + l2];
+                                    }
+                                    //用输入向量和g更新辅助向量
+                                    for (int i = 0; i < embeddinglength; i++)
+                                    {
+                                        syn1neg[i + l2] += g * syn0[i + l1];
+                                    }
+                                }
+                                //更新词向量
+                                for (int i = 0; i < embeddinglength; i++)
+                                { syn0[i + l1] += neu1e[i]; }
+                            }
+                        }
+
+
+                        //完成了一个词的训练，句子中位置往后移一个词
+                        sentence_position++;
+                        //处理完一句句子后，将句子长度置为零，进入循环，重新读取句子并进行逐词计算
+                        if (sentence_position >= sen.Count)
+                        {
+                            sen = new List<string>();
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            file.Close();
+        }
+    }
+    class Hzyword2Vectorbak
     {
         public static int MAX_STRING = 100; //词的最大长度
         public static int EXP_TABLE_SIZE = 1000;  //exp速查表的大小
@@ -27,9 +414,6 @@ namespace Word2VecCSharp
         public static int MAX_CODE_LENGTH = 40;
 
         public static ConcurrentDictionary<string, vocab_word> vocab = new ConcurrentDictionary<string, vocab_word>();
-
-        public static string train_file, output_file;
-        public static string save_vocab_file, read_vocab_file;
 
         public static int binary = 0, cbow = 1, debug_mode = 2, window = 5, min_count = 5, num_threads = 12, min_reduce = 1;
 
@@ -54,145 +438,14 @@ namespace Word2VecCSharp
 
         public static List<string> table; //table 存储的是词频分布表
         public static int table_size() { return table.Count; }
-        static void Main(string[] args)
+        static void Main1(string[] args)
         {
-        exit:
-            //if (args.Length == 0)
-            //{
-
-            //    Console.WriteLine("WORD VECTOR estimation toolkit v 0.1b\n\n");
-            //    Console.WriteLine("Options:\n");
-            //    Console.WriteLine("Parameters for training:\n");
-
-            //    //输入文件：已分词的语料
-            //    Console.WriteLine("\t-train <file>\n");
-            //    Console.WriteLine("\t\tUse text data from <file> to train the model\n");
-
-            //    //输出文件：词向量或者词聚类
-            //    Console.WriteLine("\t-output <file>\n");
-            //    Console.WriteLine("\t\tUse <file> to save the resulting word vectors / word clusters\n");
-
-            //    //词向量的维度，默认值是100
-            //    Console.WriteLine("\t-size <int>\n");
-            //    Console.WriteLine("\t\tSet size of word vectors; default is 100\n");
-
-            //    //窗口大小，默认是5
-            //    Console.WriteLine("\t-window <int>\n");
-            //    Console.WriteLine("\t\tSet max skip length between words; default is 5\n");
-
-            //    //设定词出现频率的阈值，对于常出现的词会被随机下采样
-            //    Console.WriteLine("\t-sample <float>\n");
-            //    Console.WriteLine("\t\tSet threshold for occurrence of words. Those that appear with higher frequency");
-            //    Console.WriteLine(" in the training data will be randomly down-sampled; default is 0 (off), useful value is 1e-5\n");
-
-            //    //是否采用softmax体系
-            //    Console.WriteLine("\t-hs <int>\n");
-            //    Console.WriteLine("\t\tUse Hierarchical Softmax; default is 1 (0 = not used)\n");
-
-            //    //负样本的数量，默认是0，通常使用5-10。0表示不使用。
-            //    Console.WriteLine("\t-negative <int>\n");
-            //    Console.WriteLine("\t\tNumber of negative examples; default is 0, common values are 5 - 10 (0 = not used)\n");
-
-            //    //开启的线程数量
-            //    Console.WriteLine("\t-threads <int>\n");
-            //    Console.WriteLine("\t\tUse <int> threads (default 1)\n");
-
-            //    //最小阈值。对于出现次数少于该值的词，会被抛弃掉。
-            //    Console.WriteLine("\t-min-count <int>\n");
-            //    Console.WriteLine("\t\tThis will discard words that appear less than <int> times; default is 5\n");
-
-            //    //学习速率初始值，默认是0.025
-            //    Console.WriteLine("\t-alpha <float>\n");
-            //    Console.WriteLine("\t\tSet the starting learning rate; default is 0.025\n");
-
-            //    //输出词类别，而不是词向量
-            //    Console.WriteLine("\t-classes <int>\n");
-            //    Console.WriteLine("\t\tOutput word classes rather than word vectors; default number of classes is 0 (vectors are written)\n");
-
-            //    //debug模式，默认是2，表示在训练过程中会输出更多信息
-            //    Console.WriteLine("\t-debug <int>\n");
-            //    Console.WriteLine("\t\tSet the debug mode (default = 2 = more info during training)\n");
-
-            //    //是否用binary模式保存数据，默认是0，表示否。
-            //    Console.WriteLine("\t-binary <int>\n");
-            //    Console.WriteLine("\t\tSave the resulting vectors in binary moded; default is 0 (off)\n");
-
-            //    //保存词汇到这个文件
-            //    Console.WriteLine("\t-save-vocab <file>\n");
-            //    Console.WriteLine("\t\tThe vocabulary will be saved to <file>\n");
-
-            //    //词汇从该文件读取，而不是由训练数据重组
-            //    Console.WriteLine("\t-read-vocab <file>\n");
-            //    Console.WriteLine("\t\tThe vocabulary will be read from <file>, not constructed from the training data\n");
-
-            //    //是否采用continuous bag of words算法。默认是0，表示采用另一个叫skip-gram的算法。
-            //    Console.WriteLine("\t-cbow <int>\n");
-            //    Console.WriteLine("\t\tUse the continuous bag of words model; default is 0 (skip-gram model)\n");
-
-            //    //工具使用样例
-            //    Console.WriteLine("\nExamples:\n");
-            //    Console.WriteLine("./word2vec -train data.txt -output vec.txt -debug 2 -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1\n\n");
-            //    Environment.Exit(0);
-            //}
-            //Dictionary<string, string> parameters = new Dictionary<string, string>();
-            //for (int i = 0; i < args.Length; i = i + 2)
-            //{
-            //    try
-            //    {
-            //        parameters.Add(args[i], args[i + 1]);
-            //    }
-            //    catch (Exception)
-            //    {
-            //        args = new string[0];
-            //        goto exit;
-            //    }
-
-            //}
-
-
-            //output_file = "";
-            //save_vocab_file = "";
-            //read_vocab_file = "";
-            ////           if ((i = ArgPos((char*)"-size", argc, argv)) > 0) layer1_size = atoi(argv[i + 1]);
-            //if (parameters.ContainsKey("-train")) train_file = parameters["-train"];
-
-
-            ////           if ((i = ArgPos((char*)"-save-vocab", argc, argv)) > 0) strcpy(save_vocab_file, argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-read-vocab", argc, argv)) > 0) strcpy(read_vocab_file, argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-debug", argc, argv)) > 0) debug_mode = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-binary", argc, argv)) > 0) binary = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-cbow", argc, argv)) > 0) cbow = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-alpha", argc, argv)) > 0) alpha = atof(argv[i + 1]);
-            ////           
-            //if (parameters.ContainsKey("-output")) train_file = parameters["-output"];
-
-            ////           if ((i = ArgPos((char*)"-window", argc, argv)) > 0) window = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-sample", argc, argv)) > 0) sample = atof(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-hs", argc, argv)) > 0) hs = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-negative", argc, argv)) > 0) negative = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-threads", argc, argv)) > 0) num_threads = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
-            ////           if ((i = ArgPos((char*)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
-
-
-
-            //expTable = new double[EXP_TABLE_SIZE + 1];
-            //for (int i = 0; i < EXP_TABLE_SIZE; i++)
-            //{
-            //    //expTable[i] = exp((i -500)/ 500 * 6) 即 e^-6 ~ e^6
-            //    expTable[i] = Math.Exp((1.0 * i / (EXP_TABLE_SIZE * 2 - 1) * MAX_EXP)); // Precompute the exp() table
-            //                                                                            //expTable[i] = 1/(1+e^6) ~ 1/(1+e^-6)即 0.01 ~ 1 的样子
-            //    expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
-            //}
-            ////TrainModel();
-
-
 
 
             Hzyword2Vector hzyword2Vector = new Hzyword2Vector();
             hzyword2Vector.InitUnigramTable();
             hzyword2Vector.InitNet();
-            
+
 
             hzyword2Vector.TrainModelThread(15, @"d:\temp\word2vectortrain.txt");
         }
@@ -201,7 +454,7 @@ namespace Word2VecCSharp
         //计算每个函数的词频分布表，在负采样中用到
         //负采样算法：带权采样思想。每个词的权重为l(w) = [counter(w)]^(3/4) / sum([counter(u)]^(3/4))，u属于词典D
         //每个词对应一个线段, 将[0,1]等距离划分成10^8，每次生成一个随机整数r，Table[r]就是一个样本。
-        void InitUnigramTable()
+        public void InitUnigramTable()
         {
 
             double train_words_pow = 0;
@@ -438,8 +691,8 @@ namespace Word2VecCSharp
         //根据Haffman树的特性，出现频率越高的词其二叉树上的路径越短，即二进制编码越短
         void CreateBinaryTree()
         {
-           // throw new Exception("方法未实现");
-           Console.WriteLine("CreateBinaryTree方法没有实现");
+            // throw new Exception("方法未实现");
+            Console.WriteLine("CreateBinaryTree方法没有实现");
         }
 
         //该函数为线程函数，是训练算法代码实现的主要部分
@@ -661,7 +914,7 @@ namespace Word2VecCSharp
                         last_word = sen[c];
                         if (last_word == "") continue;
                         //l1为当前单词的词向量在syn0中的起始位置
-                        l1 = vocab[last_word].oneHotId * layer1_size;
+                        l1 = vocab[last_word].oneHot * layer1_size;
                         //初始化累计误差
                         for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
 
@@ -685,7 +938,7 @@ namespace Word2VecCSharp
                                     if (target == word) continue;
                                     label = 0;
                                 }
-                                l2 = vocab[target].oneHotId;
+                                l2 = vocab[target].oneHot;
                                 f = 0;
                                 for (c = 0; c < layer1_size; c++)
                                 {
