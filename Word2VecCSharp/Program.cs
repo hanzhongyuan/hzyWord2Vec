@@ -315,7 +315,8 @@ namespace Word2VecCSharp
                     for (int leftWindowPosition = ture_window_size; leftWindowPosition < window * 2 + 1 - ture_window_size; leftWindowPosition++)
                     {
                         if (leftWindowPosition != window)
-                        {
+                        {// 假设window=5 ture_windows_size=3,lefitwindowsPostion的取值3，略过5，增加到7,即3467,currentPosition的取值就是句子当前位置-2，-1，+1，+2
+                         // 假设window=5 ture_windows_size=1,lefitwindowsPostion的取值1，略过5，增加到9,即12346789,currentPosition的取值就是句子当前位置-4，-3，-2，-1，+1，+2，+3，+4
                             #region #取一个上下文的词
                             currentPosition = sentence_position - window + leftWindowPosition;
                             if (currentPosition < 0) continue;
@@ -325,7 +326,7 @@ namespace Word2VecCSharp
                             #endregion
 
 
-                            //l1为当前单词的词向量在syn0中的起始位置
+                            //l1为当前答案单词的词向量在syn0中的起始位置
                             l1 = word_information[last_word].oneHot * embeddinglength;
                             //初始化累计误差
                             for (int i = 0; i < embeddinglength; i++) neu1e[i] = 0;
@@ -353,6 +354,7 @@ namespace Word2VecCSharp
                                     }
                                     #endregion
 
+                                    //target是正负样本词，是正样本还是负样本看标签label
                                     l2 = word_information[target].oneHot * embeddinglength;
                                     f = 0;
                                     for (int i = 0; i < embeddinglength; i++)

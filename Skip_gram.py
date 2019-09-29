@@ -17,16 +17,17 @@ class Preprocess():
     @staticmethod    
     def get_corpus( filename):
         corpus=[]
-        file=open(filename)
-        oneLine=file.readline();
-        word_vector=oneLine.split( )
-        corpus.append(word_vector)
+        file=open(filename,'r',encoding='utf-8')
+        for oneLine in file:
+       # oneLine=file.readline();
+            word_vector=oneLine.split( )
+            corpus.append(word_vector)
         file.close()
         return corpus
     pass
 
 preprocess =Preprocess()
-corpus =preprocess.get_corpus("D:\\temp\\a.txt")
+corpus =preprocess.get_corpus("d:\\temp\\zh_wiki_segment.txt")
 #[['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting'],
 #    ['natural', 'language', 'processing', 'and','machine','learning','is','fun','and','exciting']]
 #1111111111111111111111111111111111111111111111111111111111111111111111111111111111111
@@ -220,10 +221,12 @@ hzyWord2vector.train(training_data,training_corpus)
 
 #6666666666666666666666666666666666666666666666666666666666666666666666666666666666666
 #6输出训练的向量
-print("我们")
-print(hzyWord2vector.get_word_vector('我们',training_data))
-print("我")
-print(hzyWord2vector.get_word_vector('我',training_data))
+#for x in training_data.word_index:
+   # print(hzyWord2vector.get_word_vector(x,training_data))
+print("数学")
+print(hzyWord2vector.get_word_vector('数家',training_data))
+print("数学家")
+print(hzyWord2vector.get_word_vector('数学家',training_data))
 
 #6666666666666666666666666666666666666666666666666666666666666666666666666666666666666
 
